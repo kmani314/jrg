@@ -1,11 +1,8 @@
 Cython==0.29.21
 dyNET38==2.1
-fugashi==1.0.5
 mecab-python3==1.0.3
-nagisa==0.2.7
 numpy==1.19.4
 six==1.15.0
-tinysegmenter==0.4
 torch==1.7.1
 typing-extensions==3.7.4.3
 unidic-lite==1.0.7

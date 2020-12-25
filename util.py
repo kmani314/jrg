@@ -3,6 +3,7 @@ from data import Vocab
 import MeCab
 from multiprocessing import Pool
 from functools import partial
+import pickle
 parser = MeCab.Tagger("-O wakati")
 
 
@@ -58,19 +59,17 @@ def embed_block(vocab, block):
     return out
 
 
-def tokenize_and_build_vocab(file, out, vocab_len):
+def tokenize_and_build_vocab(file, vocab_len, chunk):
     data = open(file, 'r').read()
-    outfile = open(out, 'a')
 
     # chunk data
-    n = 10000
-    print('Chunking into blocks of {} sentences...'.format(n))
+    print('Chunking into blocks of {} sentences...'.format(chunk))
     lines = data.splitlines()
     blocks = []
-    for i in range(0, len(lines), n):
-        if i % (n * 100) == 0:
+    for i in range(0, len(lines), chunk):
+        if i % (chunk * 100) == 0:
             print('Blocked {} sentences'.format(i))
-        blocks.append(lines[i: i + n])
+        blocks.append(lines[i: i + chunk])
 
     del data
     pool = Pool(processes=32)
@@ -101,11 +100,32 @@ def tokenize_and_build_vocab(file, out, vocab_len):
     p_embed_block = partial(embed_block, vocab)
     res = pool.map(p_embed_block, [i[1] for i in tokenized])
 
-    for i in res:
-        for j in i:
-            outfile.write('{}\n'.format(j))
+    print('Pickling data')
+    pickle.dump(res, open('./data.pkl', 'wb'))
+    pickle.dump(vocab, open('./vocab.pkl', 'wb'))
+
+
+def ngram_block(length, data):
+    out = []
+    for i in data:
+        sent = []
+        for j in range(0, len(i) - length, 1):
+            sent.append(i[j:j+length])
+        out.append(sent)
+    return out
+
+
+def data_to_ngram(data, length, chunk):
+    blocks = []
+    for i in range(0, len(data), chunk):
+        blocks.append(data[i: i + chunk])
+
+    pool = Pool(processes=32)
+    p_ngram_block = partial(ngram_block, length)
+    res = pool.map(p_ngram_block, blocks)
+    print(res)
 
 
 # prune_edict('./edict2-utf8.txt', './vocab.txt')
 # prune_leeds_corpus('./leeds.txt', './vocab_freq.txt', -1)
-tokenize_and_build_vocab('./data2.txt', './split_data.txt', 50000)
+tokenize_and_build_vocab('./data3.txt', 50000, 10000)
