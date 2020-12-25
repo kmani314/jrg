@@ -1,7 +1,8 @@
 import re
-import nagisa
 from data import Vocab
 import MeCab
+from multiprocessing import Pool
+from functools import partial
 parser = MeCab.Tagger("-O wakati")
 
 
@@ -26,22 +27,65 @@ def prune_leeds_corpus(file, out, size):
         outfile.write('{}\n'.format(i))
 
 
-def tokenize_jpn(input):
-    return nagisa.tagging(input).words
+def tokenize_block(block):
+    count = 0
+    words = {}
+    tokenized = []
+    for i in block:
+        tokenized.append(parser.parse(i))
+
+    for j in ' '.join(tokenized).split(' '):
+        if j in words:
+            # print('{} words in block'.format(count))
+            words[j] += 1
+            count += 1
+            continue
+        words[j] = 1
+    return (words, tokenized)
+
+def embed_block(vocab, block):
+    out = []
+    for i in block:
+
+        out2 = []
+        out2.append(vocab.w2i.get('<SOS>'))
+        for j in i.strip('\n').split(' ')[:-1]:
+            idx = vocab.w2i.get(j)
+            out2.append(idx if idx is not None else vocab.w2i.get('<UNK>'))
+        out2.append(vocab.w2i.get('<EOS>'))
+        out.append(out2)
+
+    return out
 
 
 def tokenize_and_build_vocab(file, out, vocab_len):
     data = open(file, 'r').read()
     outfile = open(out, 'a')
 
-    words = {}
+    # chunk data
+    n = 10000
+    print('Chunking into blocks of {} sentences...'.format(n))
+    lines = data.splitlines()
+    blocks = []
+    for i in range(0, len(lines), n):
+        if i % (n * 100) == 0:
+            print('Blocked {} sentences'.format(i))
+        blocks.append(lines[i: i + n])
 
-    tokenized = parser.parse(data)
-    for i in tokenized.split(' '):
-        if i in words:
-            words[i] += 1
-            continue
-        words[i] = 1
+    del data
+    pool = Pool(processes=32)
+
+    print('Building vocab over {} blocks...'.format(len(blocks)))
+    tokenized = pool.map(tokenize_block, blocks)
+
+    words = {}
+    print('Finding unique tokens...')
+    for i in [i[0] for i in tokenized]:
+        for j in i:
+            if j in words:
+                words[j] += i[j]
+                continue
+            words[j] = i[j]
 
     # sort by freq
     words = dict(sorted(words.items(), key=lambda item: item[1], reverse=True))
@@ -52,28 +96,16 @@ def tokenize_and_build_vocab(file, out, vocab_len):
     words.append('<SOS>')
     words.append('<EOS>')
     words.append('<UNK>')
-
-    print(words)
     vocab = Vocab(words)
 
-    out = []
-    lines = data.splitlines()
-    print(repr(lines))
+    p_embed_block = partial(embed_block, vocab)
+    res = pool.map(p_embed_block, [i[1] for i in tokenized])
 
-    for i in lines:
-        out2 = []
-        out2.append(vocab.w2i.get('<SOS>'))
-        for j in parser.parse(i).strip('\n').split(' ')[:-1]:
-            idx = vocab.w2i.get(j)
-            print(repr('{}: {}'.format(j, idx)))
-            out2.append(idx if idx is not None else vocab.w2i.get('<UNK>'))
-        out2.append(vocab.w2i.get('<EOS>'))
-        out.append(out2)
-
-    for i in out:
-        outfile.write('{}\n'.format(i))
+    for i in res:
+        for j in i:
+            outfile.write('{}\n'.format(j))
 
 
 # prune_edict('./edict2-utf8.txt', './vocab.txt')
 # prune_leeds_corpus('./leeds.txt', './vocab_freq.txt', -1)
-tokenize_and_build_vocab('./data.txt', './split_data.txt', 200)
+tokenize_and_build_vocab('./data2.txt', './split_data.txt', 50000)
