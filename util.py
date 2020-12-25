@@ -60,7 +60,7 @@ def embed_block(vocab, block):
     return out
 
 
-def tokenize_and_build_vocab(file, vocab_len, chunk):
+def tokenize_and_build_vocab(file, vocab_len, chunk, processes=32):
     data = open(file, 'r').read()
 
     # chunk data
@@ -73,9 +73,9 @@ def tokenize_and_build_vocab(file, vocab_len, chunk):
         blocks.append(lines[i: i + chunk])
 
     del data
-    pool = Pool(processes=32)
+    pool = Pool(processes=processes)
 
-    print('Building vocab over {} blocks...'.format(len(blocks)))
+    print('Building vocab over {} blocks, using {} threads...'.format(len(blocks), processes))
     tokenized = pool.map(tokenize_block, blocks)
 
     words = {}
@@ -121,12 +121,13 @@ def ngram_block(length, data):
     return out
 
 
-def data_to_ngram(data, length, chunk):
+def data_to_ngram(data, length, chunk, processes=32):
     blocks = []
     for i in range(0, len(data), chunk):
         blocks.append(data[i: i + chunk])
 
-    pool = Pool(processes=32)
+    print('generating ngrams, using {} threads'.format(processes))
+    pool = Pool(processes=processes)
     p_ngram_block = partial(ngram_block, length)
     res = pool.map(p_ngram_block, blocks)
 
@@ -135,4 +136,5 @@ def data_to_ngram(data, length, chunk):
     for i in res:
         for j in i:
             out.append(j)
-    return out
+
+    pickle.dump(out, open('./ngram.pkl', 'wb'))
