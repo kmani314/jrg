@@ -1,5 +1,5 @@
 import re
-from data import Vocab
+from vocab import Vocab
 import MeCab
 from multiprocessing import Pool
 from functools import partial
@@ -43,6 +43,7 @@ def tokenize_block(block):
             continue
         words[j] = 1
     return (words, tokenized)
+
 
 def embed_block(vocab, block):
     out = []
@@ -99,9 +100,14 @@ def tokenize_and_build_vocab(file, vocab_len, chunk):
 
     p_embed_block = partial(embed_block, vocab)
     res = pool.map(p_embed_block, [i[1] for i in tokenized])
+    out = []
+
+    for i in res:
+        for j in i:
+            out.append(j)
 
     print('Pickling data')
-    pickle.dump(res, open('./data.pkl', 'wb'))
+    pickle.dump(out, open('./data.pkl', 'wb'))
     pickle.dump(vocab, open('./vocab.pkl', 'wb'))
 
 
@@ -109,7 +115,7 @@ def ngram_block(length, data):
     out = []
     for i in data:
         sent = []
-        for j in range(0, len(i) - length, 1):
+        for j in range(0, len(i) - length + 1, 1):
             sent.append(i[j:j+length])
         out.append(sent)
     return out
@@ -123,9 +129,10 @@ def data_to_ngram(data, length, chunk):
     pool = Pool(processes=32)
     p_ngram_block = partial(ngram_block, length)
     res = pool.map(p_ngram_block, blocks)
-    print(res)
 
+    out = []
 
-# prune_edict('./edict2-utf8.txt', './vocab.txt')
-# prune_leeds_corpus('./leeds.txt', './vocab_freq.txt', -1)
-tokenize_and_build_vocab('./data3.txt', 50000, 10000)
+    for i in res:
+        for j in i:
+            out.append(j)
+    return out
