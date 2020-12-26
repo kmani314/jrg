@@ -109,32 +109,3 @@ def tokenize_and_build_vocab(file, vocab_len, chunk, processes=32):
     print('Pickling data')
     pickle.dump(out, open('./data.pkl', 'wb'))
     pickle.dump(vocab, open('./vocab.pkl', 'wb'))
-
-
-def ngram_block(length, data):
-    out = []
-    for i in data:
-        sent = []
-        for j in range(0, len(i) - length + 1, 1):
-            sent.append(i[j:j+length])
-        out.append(sent)
-    return out
-
-
-def data_to_ngram(data, length, chunk, processes=32):
-    blocks = []
-    for i in range(0, len(data), chunk):
-        blocks.append(data[i: i + chunk])
-
-    print('generating ngrams, using {} threads'.format(processes))
-    pool = Pool(processes=processes)
-    p_ngram_block = partial(ngram_block, length)
-    res = pool.map(p_ngram_block, blocks)
-
-    out = []
-
-    for i in res:
-        for j in i:
-            out.append(j)
-
-    pickle.dump(out, open('./ngram.pkl', 'wb'))
