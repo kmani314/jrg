@@ -14,18 +14,20 @@ class RNN(nn.Module):
         # GRU
         self.gru = nn.GRU(embedding_dim, hidden_dim, num_layers=num_cells)
 
-        # self.drop = nn.Dropout(p=lmbda)
+        self.drop = nn.Dropout(p=lmbda)
 
         # fully connected layer at end of net
         self.fc = nn.Linear(hidden_dim, vocab_size)
-        self.softmax = nn.Softmax(dim=1)
+        self.softmax = nn.LogSoftmax(dim=2)
 
     def forward(self, input, hidden):
         # tensor of word embeddings from input sequence tensor
         embedded = self.embedding(input)
 
-        print(embedded.shape)
         gru_output, gru_hidden = self.gru(embedded)
+
         output = self.fc(gru_output)
+        # output = self.drop(output)
         output2 = self.softmax(output)
+
         return output2, gru_hidden

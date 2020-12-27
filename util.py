@@ -109,3 +109,5 @@ def tokenize_and_build_vocab(file, vocab_len, chunk, processes=32):
     print('Pickling data')
     pickle.dump(out, open('./data.pkl', 'wb'))
     pickle.dump(vocab, open('./vocab.pkl', 'wb'))
+
+tokenize_and_build_vocab('./data.txt', 5000, 10000)
