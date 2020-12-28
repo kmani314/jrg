@@ -4,6 +4,7 @@ import MeCab
 from multiprocessing import Pool
 from functools import partial
 import pickle
+import csv
 parser = MeCab.Tagger("-O wakati")
 
 
@@ -27,6 +28,9 @@ def prune_leeds_corpus(file, out, size):
     for i in regex.findall(data)[0:size]:
         outfile.write('{}\n'.format(i))
 
+
+def tokenize_string(string):
+    return parser.parse(string).split(' ')
 
 def tokenize_block(block):
     count = 0
@@ -58,6 +62,16 @@ def embed_block(vocab, block):
         out.append(out2)
 
     return out
+
+
+def get_tatoeba_tsv(file, out):
+    data = open(file, 'r')
+    out = open(out, 'w')
+
+    rd = csv.reader(data, delimiter='\t')
+
+    for row in rd:
+        out.write('{}\n'.format(row[2]))
 
 
 def tokenize_and_build_vocab(file, vocab_len, chunk, processes=32):
@@ -110,4 +124,6 @@ def tokenize_and_build_vocab(file, vocab_len, chunk, processes=32):
     pickle.dump(out, open('./data.pkl', 'wb'))
     pickle.dump(vocab, open('./vocab.pkl', 'wb'))
 
-tokenize_and_build_vocab('./data.txt', 5000, 10000)
+
+# get_tatoeba_tsv('./data.tsv', './data.txt')
+# tokenize_and_build_vocab('./data.txt', 25000, 10000)

@@ -1,12 +1,16 @@
 import numpy as np
 import torch
 import pickle
+import math
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
+from tqdm import tqdm
+from config import hyperparams
 from data import TextDataset
 from vocab import Vocab
-from config import hyperparams
 from model import RNN
+from util import tokenize_string
+from decode import decode
 
 device = torch.device(hyperparams['device'])
 vocab = pickle.load(open('vocab.pkl', 'rb'))
@@ -17,7 +21,8 @@ rnn = RNN(
     hyperparams['embedding_dim'],
     hyperparams['hidden_dim'],
     hyperparams['dropout'],
-    num_cells=hyperparams['num_cells']
+    num_cells=hyperparams['num_cells'],
+    dropout=hyperparams['dropout']
 )
 
 rnn.to(device=device)
@@ -25,14 +30,25 @@ rnn.to(device=device)
 dataset = TextDataset('./data.pkl', hyperparams['seq_length'])
 loader = DataLoader(dataset, batch_size=hyperparams['batch_size'], shuffle=True, num_workers=0)
 
-criterion = torch.nn.NLLLoss()
+criterion = torch.nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(rnn.parameters(), lr=hyperparams['lr'])
 decay = torch.optim.lr_scheduler.StepLR(optimizer, step_size=hyperparams['step_size'], gamma=hyperparams['gamma'])
 
+def repackage_hidden(h):
+    if isinstance(h, torch.Tensor):
+        return h.detach()
+    else:
+        return tuple(repackage_hidden(v) for v in h)
+
+
 def train(epochs):
+    hidden = torch.zeros(hyperparams['num_cells'], hyperparams['batch_size'], hyperparams['hidden_dim'], device=device)
+    cell_state = torch.zeros(hyperparams['num_cells'], hyperparams['batch_size'], hyperparams['hidden_dim'], device=device)
+
     epoch = 1
-    for i, minibatch in enumerate(loader):
-        hidden = torch.zeros(1, hyperparams['batch_size'], hyperparams['hidden_dim'], device=device)
+    for i, minibatch in tqdm(enumerate(loader), total=epochs):
+        hidden = repackage_hidden(hidden)
+        cell_state = repackage_hidden(cell_state)
         if epoch > epochs:
             break
 
@@ -42,11 +58,10 @@ def train(epochs):
         transpose = torch.transpose(gpu_batch, 0, 1)
         context = torch.narrow(transpose, 0, 0, hyperparams['seq_length'] - 1)
 
-
         gt = torch.narrow(transpose, 0, hyperparams['seq_length'] - 1, 1)
         gt = gt.squeeze()
 
-        output, hidden = rnn(context, hidden)
+        output, (hidden, cell_state) = rnn(context, hidden, cell_state)
 
         preds = torch.narrow(output, 0, hyperparams['seq_length'] - 2, 1)
 
@@ -58,25 +73,16 @@ def train(epochs):
         optimizer.step()
         decay.step()
 
-        print('Epoch {} loss: {}'.format(epoch, loss))
-
-        # if epoch % 100 == 0:
-        #     smp = sample('それ', 16)
-        #     writer.add_text('Epoch {} sample (Greedy)'.format(epoch), smp)
+        if epoch % hyperparams['sample_rate'] == 0:
+            tokenized = tokenize_string(hyperparams['sample'])
+            sample = decode(tokenized, hyperparams['sample_size'], rnn, vocab, device)
+            writer.add_text('Greedy decode', sample, global_step=epoch)
 
         writer.add_scalar('Training loss', loss, epoch)
         writer.flush()
         epoch += 1
 
-def sample(prompt, length):
-    hidden = torch.zeros(1, 1, hyperparams['hidden_dim'], device=device)
-    idx = vocab.w2i[prompt]
-    input = torch.tensor([[idx]], device=device)
-
-    output, hidden = rnn(input, hidden)
-    output = output.squeeze()
-    idx = torch.argmax(output).item()
-    return '{}{}'.format(prompt, vocab.i2w[idx])
+    torch.save(rnn.state_dict(), './model.pt')
 
 train(hyperparams['epochs'])
 writer.close()

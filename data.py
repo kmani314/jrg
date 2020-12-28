@@ -6,15 +6,20 @@ import pickle
 class TextDataset(Dataset):
     def __init__(self, sentence_file, ngram_length):
         print('Loading dataset into memory...')
-        self.sentences = list(filter(lambda x: True if len(x) > ngram_length else False, pickle.load(open(sentence_file, 'rb'))))
+        self.sentences = pickle.load(open(sentence_file, 'rb'))
+        print('Processing dataset...')
+        # flatten to give the network a better sense of how blocks of text work
+        block = []
+        for i in self.sentences:
+            for j in i :
+                block.append(j)
+
+        self.sentences = block
 
         self.ngram_length = ngram_length
 
     def __len__(self):
-        return len(self.sentences)
+        return len(self.sentences) - self.ngram_length + 1
 
     def __getitem__(self, idx):
-        sentence = self.sentences[idx]
-
-        begin = random.randint(len(sentence) - self.ngram_length)
-        return torch.tensor(sentence[begin:(begin + self.ngram_length)])
+        return torch.tensor(self.sentences[idx:(idx + self.ngram_length)])
