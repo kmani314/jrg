@@ -20,7 +20,9 @@ def decode(prompt, length, rnn, vocab, device):
         curr_out, (hidden, cell_state) = rnn(this_seq, hidden, cell_state)
 
         # get last element
-        curr_out = torch.narrow(curr_out, 0, len(prompt) - 1, 1)
+        if i == 0:
+            curr_out = torch.narrow(curr_out, 0, len(prompt) - 1, 1)
+
         curr_out = curr_out.squeeze()
         # remove <SOS>, <EOS>, <UNK>
         curr_out = curr_out[0:aux_idx]
@@ -34,7 +36,8 @@ def decode(prompt, length, rnn, vocab, device):
 
         idx = np.random.choice(len(vocab.words) - 1, p=curr_out)
         idx = torch.tensor([idx], device=device).t()
-        this_seq = torch.cat([this_seq[1:], idx.unsqueeze(0)])
+        # this_seq = torch.cat([this_seq[1:], idx.unsqueeze(0)])
+        this_seq = idx.unsqueeze(0)
 
         word = vocab.i2w[idx.item()]
         seq.append(word)
