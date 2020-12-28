@@ -11,8 +11,9 @@ class RNN(nn.Module):
 
         # learn a word embedding
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
-        self.lstm = nn.LSTM(embedding_dim, hidden_dim, dropout=dropout, num_layers=num_cells) # fully connected layer at end of net
+        self.lstm = nn.LSTM(embedding_dim, hidden_dim, dropout=dropout, num_layers=num_cells)
 
+        # fully connected layer at end of net
         self.fc1 = nn.Linear(hidden_dim, vocab_size)
         self.softmax = nn.LogSoftmax(dim=2)
 

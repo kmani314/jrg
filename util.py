@@ -32,6 +32,7 @@ def prune_leeds_corpus(file, out, size):
 def tokenize_string(string):
     return parser.parse(string).split(' ')
 
+
 def tokenize_block(block):
     count = 0
     words = {}

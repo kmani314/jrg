@@ -1,13 +1,10 @@
-import numpy as np
 import torch
 import pickle
-import math
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from config import hyperparams
 from data import TextDataset
-from vocab import Vocab
 from model import RNN
 from util import tokenize_string
 from decode import decode
@@ -28,11 +25,21 @@ rnn = RNN(
 rnn.to(device=device)
 
 dataset = TextDataset('./data.pkl', hyperparams['seq_length'])
-loader = DataLoader(dataset, batch_size=hyperparams['batch_size'], shuffle=True, num_workers=0)
+loader = DataLoader(
+    dataset,
+    batch_size=hyperparams['batch_size'],
+    shuffle=True,
+    num_workers=0
+)
 
 criterion = torch.nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(rnn.parameters(), lr=hyperparams['lr'])
-decay = torch.optim.lr_scheduler.StepLR(optimizer, step_size=hyperparams['step_size'], gamma=hyperparams['gamma'])
+decay = torch.optim.lr_scheduler.StepLR(
+    optimizer,
+    step_size=hyperparams['step_size'],
+    gamma=hyperparams['gamma']
+)
+
 
 def repackage_hidden(h):
     if isinstance(h, torch.Tensor):
@@ -42,8 +49,12 @@ def repackage_hidden(h):
 
 
 def train(epochs):
-    hidden = torch.zeros(hyperparams['num_cells'], hyperparams['batch_size'], hyperparams['hidden_dim'], device=device)
-    cell_state = torch.zeros(hyperparams['num_cells'], hyperparams['batch_size'], hyperparams['hidden_dim'], device=device)
+    hidden = cell_state = torch.zeros(
+        hyperparams['num_cells'],
+        hyperparams['batch_size'],
+        hyperparams['hidden_dim'],
+        device=device
+    )
 
     epoch = 1
     for i, minibatch in tqdm(enumerate(loader), total=epochs):
@@ -75,7 +86,13 @@ def train(epochs):
 
         if epoch % hyperparams['sample_rate'] == 0:
             tokenized = tokenize_string(hyperparams['sample'])
-            sample = decode(tokenized, hyperparams['sample_size'], rnn, vocab, device)
+            sample = decode(
+                tokenized,
+                hyperparams['sample_size'],
+                rnn,
+                vocab,
+                device
+            )
             writer.add_text('Greedy decode', sample, global_step=epoch)
 
         writer.add_scalar('Training loss', loss, epoch)
@@ -83,6 +100,7 @@ def train(epochs):
         epoch += 1
 
     torch.save(rnn.state_dict(), './model.pt')
+
 
 train(hyperparams['epochs'])
 writer.close()

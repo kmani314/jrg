@@ -1,7 +1,6 @@
 import torch
 import pickle
 from config import hyperparams
-from vocab import Vocab
 from model import RNN
 from decode import decode
 
@@ -21,6 +20,7 @@ state_dict = torch.load('./model.pt')
 
 rnn.load_state_dict(state_dict)
 rnn.to(device=device)
+
 
 def sample(prompt, length):
     return decode(prompt, length, rnn, vocab, device)
